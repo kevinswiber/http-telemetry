@@ -1,16 +1,14 @@
 {
-  "name": "newman-trace",
+  "name": "http-tracer",
   "version": "1.0.0",
   "description": "Run a Postman collection and store the execution as an HTTP Archive (HAR) file.",
-  "main": "dist/cli.js",
-  "bin": "./dist/cli.js",
+  "main": "dist/instrument.js",
   "scripts": {
-    "build": "tsc && npm run chmod",
+    "build": "tsc",
     "watch": "npm run build && tsc -w --preserveWatchOutput",
     "test": "jest --cacheDirectory=.cache/.jest",
     "start": "npm run build && node ./dist/cli.js",
     "clean": "tsc --build --clean",
-    "chmod": "node -e \"require('fs').chmodSync('./dist/cli.js', 0o750)\"",
     "prepack": "npm run clean && npm run build"
   },
   "repository": {

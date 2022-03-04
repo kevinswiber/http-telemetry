@@ -27,7 +27,7 @@ export class HARExporter implements IExporter {
   }
 
   onInstrumented(): void {
-    // no-op
+    this.archive.log.entries = [];
   }
 
   createInterceptor(method: string, url: URL, timing: bigint): IInterceptor {
@@ -313,7 +313,7 @@ class HARInterceptor implements IInterceptor {
     this.entry.timings.connect = Number(timings.connect) / 1_000_000;
   }
 
-  onSecureConnect(socket: Socket, timing: bigint): void {
+  onSecureConnect(_socket: Socket, timing: bigint): void {
     const timings = this.timings;
     const blocked = timings.blocked < 0n ? 0n : timings.blocked;
     const dns = timings.dns < 0n ? 0n : timings.dns;

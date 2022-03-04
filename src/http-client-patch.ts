@@ -32,7 +32,13 @@ function createTrace(
       return request.apply(this, [options, callback]);
     }
 
-    options.defaultProtocol = defaultProtocol;
-    return instrument(this, exporter, request, options, callback);
+    return instrument(
+      this,
+      exporter,
+      request,
+      options,
+      defaultProtocol,
+      callback
+    );
   };
 }

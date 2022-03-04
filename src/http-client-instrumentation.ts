@@ -6,14 +6,15 @@ export function instrument(
   exporter: IExporter,
   request: RequestFunc,
   options: TraceOptions,
+  defaultProtocol: string,
   callback?: (res: IncomingMessage) => void
 ) {
   const method = options.method || "GET";
   const url =
-    options instanceof String
+    typeof options === "string"
       ? new URL(String(options))
       : new URL(
-          (options.protocol || options.defaultProtocol) +
+          (options.protocol || defaultProtocol) +
             "//" +
             (options.hostname || options.host || "localhost") +
             ":" +
@@ -47,10 +48,6 @@ export function instrument(
       interceptor.onResponseEnd(res, responseBody, process.hrtime.bigint());
       interceptor.onComplete();
     });
-
-    if (callback) {
-      callback(res);
-    }
   });
 
   req.once("data", () => {
