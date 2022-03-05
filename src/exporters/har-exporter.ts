@@ -9,7 +9,8 @@ import { AddressInfo, Socket } from "node:net";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import { Entry, Har } from "har-format";
 import { getEncoding } from "istextorbinary";
-import { IExporter, IInterceptor, Metrics } from "../types";
+import { IExporter, IInterceptor } from "../types";
+import { Meter } from "../meter";
 
 export interface HARExporterOptions {
   name: string;
@@ -60,9 +61,7 @@ export class HARExporter implements IExporter {
 class HARInterceptor implements IInterceptor {
   private url: URL;
   private entry: Entry;
-  private times: Metrics;
-  private startTime: bigint;
-  private accumulatedTime: bigint;
+  private meter: Meter;
   private completionHandler: (entry: Entry) => void;
 
   constructor(
@@ -73,18 +72,7 @@ class HARInterceptor implements IInterceptor {
   ) {
     this.url = url;
     this.entry = this.createEntry(method, url, new Date());
-    this.startTime = time;
-    this.accumulatedTime = time;
-    this.times = {
-      start: time,
-      blocked: -1n,
-      dns: -1n,
-      connect: -1n,
-      send: 0n,
-      wait: 0n,
-      receive: 0n,
-      ssl: -1n,
-    };
+    this.meter = new Meter(time);
     this.completionHandler = completionHandler;
   }
 
@@ -161,17 +149,14 @@ class HARInterceptor implements IInterceptor {
   }
 
   onResponseFirstByte(time: bigint): void {
-    this.times.wait = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.wait = Number(this.times.wait) / 1_000_000;
+    this.meter.recordWait(time);
+    this.entry.timings.wait = Number(this.meter.wait) / 1_000_000;
   }
 
   onResponseEnd(res: IncomingMessage, body: Buffer, time: bigint): void {
-    this.times.receive = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-
-    this.entry.timings.receive = Number(this.times.receive) / 1_000_000;
-    this.entry.time = Number(this.accumulatedTime - this.startTime) / 1_000_000;
+    this.meter.recordReceive(time);
+    this.entry.timings.receive = Number(this.meter.receive) / 1_000_000;
+    this.entry.time = Number(this.meter.total) / 1_000_000;
 
     this.entry.response.bodySize = body.length;
     const ce = res.headers["content-encoding"];
@@ -231,9 +216,8 @@ class HARInterceptor implements IInterceptor {
   }
 
   onRequestFinish(req: ClientRequest, body: Buffer, time: bigint): void {
-    this.times.send = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.send = Number(this.times.send) / 1_000_000;
+    this.meter.recordSend(time);
+    this.entry.timings.send = Number(this.meter.send) / 1_000_000;
 
     this.entry.request.bodySize = body.length;
 
@@ -258,9 +242,8 @@ class HARInterceptor implements IInterceptor {
   }
 
   onSocketCreate(socket: Socket, time: bigint): void {
-    this.times.blocked = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.blocked = Number(this.times.blocked) / 1_000_000;
+    this.meter.recordBlocked(time);
+    this.entry.timings.blocked = Number(this.meter.blocked) / 1_000_000;
 
     const address = socket.address() as AddressInfo;
     if (address.port) {
@@ -271,9 +254,8 @@ class HARInterceptor implements IInterceptor {
   onDNSLookup(address: string, time: bigint): void {
     this.entry.serverIPAddress = address;
 
-    this.times.dns = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.dns = Number(this.times.dns) / 1_000_000;
+    this.meter.recordDNS(time);
+    this.entry.timings.dns = Number(this.meter.dns) / 1_000_000;
   }
 
   onSocketConnect(socket: Socket, time: bigint): void {
@@ -282,15 +264,14 @@ class HARInterceptor implements IInterceptor {
       this.entry.connection = String(address.port);
     }
 
-    this.times.connect = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.connect = Number(this.times.connect) / 1_000_000;
+    this.meter.recordConnect(time);
+
+    this.entry.timings.connect = Number(this.meter.connect) / 1_000_000;
   }
 
   onSecureConnect(_socket: Socket, time: bigint): void {
-    this.times.ssl = time - this.accumulatedTime;
-    this.accumulatedTime = time;
-    this.entry.timings.ssl = Number(this.times.ssl) / 1_000_000;
+    this.meter.recordSSL(time);
+    this.entry.timings.ssl = Number(this.meter.ssl) / 1_000_000;
   }
 
   onComplete(): void {
