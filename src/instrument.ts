@@ -1,4 +1,4 @@
-import { HARExporter } from "./har-exporter";
+import { HARExporter } from "./exporters/har-exporter";
 import { patch } from "./http-client-patch";
 
 const name = process.env.HAR_CREATOR_NAME || "har-tracer";

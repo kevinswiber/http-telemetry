@@ -9,7 +9,7 @@ import { AddressInfo, Socket } from "node:net";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import { Entry, Har } from "har-format";
 import { getEncoding } from "istextorbinary";
-import { IExporter, IInterceptor, Timings } from "./types";
+import { IExporter, IInterceptor, Metrics } from "../types";
 
 export interface HARExporterOptions {
   name: string;
@@ -30,8 +30,8 @@ export class HARExporter implements IExporter {
     this.archive.log.entries = [];
   }
 
-  createInterceptor(method: string, url: URL, timing: bigint): IInterceptor {
-    const interceptor = new HARInterceptor(method, url, timing, (entry) => {
+  createInterceptor(method: string, url: URL, time: bigint): IInterceptor {
+    const interceptor = new HARInterceptor(method, url, time, (entry) => {
       this.archive.log.entries.push(entry);
     });
     return interceptor;
@@ -60,19 +60,23 @@ export class HARExporter implements IExporter {
 class HARInterceptor implements IInterceptor {
   private url: URL;
   private entry: Entry;
-  private timings: Timings;
+  private times: Metrics;
+  private startTime: bigint;
+  private accumulatedTime: bigint;
   private completionHandler: (entry: Entry) => void;
 
   constructor(
     method: string,
     url: URL,
-    timing: bigint,
+    time: bigint,
     completionHandler: (entry: Entry) => void
   ) {
     this.url = url;
     this.entry = this.createEntry(method, url, new Date());
-    this.timings = {
-      start: timing,
+    this.startTime = time;
+    this.accumulatedTime = time;
+    this.times = {
+      start: time,
       blocked: -1n,
       dns: -1n,
       connect: -1n,
@@ -84,7 +88,7 @@ class HARInterceptor implements IInterceptor {
     this.completionHandler = completionHandler;
   }
 
-  onRequestCall(req: ClientRequest, _timing: bigint): void {
+  onRequestCall(req: ClientRequest, _time: bigint): void {
     const { converted, size } = this.convertHeadersWithSize(req.getHeaders());
     this.entry.request.headers = converted;
     this.entry.request.headersSize = size;
@@ -101,7 +105,7 @@ class HARInterceptor implements IInterceptor {
         });
   }
 
-  onResponseReceived(res: IncomingMessage, _timing: bigint): void {
+  onResponseReceived(res: IncomingMessage, _time: bigint): void {
     this.entry.response.status = res.statusCode;
     this.entry.response.statusText = res.statusMessage;
     this.entry.response.httpVersion = `HTTP/${res.httpVersion}`;
@@ -156,42 +160,18 @@ class HARInterceptor implements IInterceptor {
         });
   }
 
-  onResponseFirstByte(timing: bigint): void {
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    const dns = timings.dns < 0n ? 0n : timings.dns;
-    const connect = timings.connect < 0n ? 0n : timings.connect;
-    const ssl = timings.ssl < 0n ? 0n : timings.ssl;
-    timings.wait =
-      timing - (timings.start + blocked + dns + connect + ssl + timings.send);
-    this.entry.timings.wait = Number(timings.wait) / 1_000_000;
+  onResponseFirstByte(time: bigint): void {
+    this.times.wait = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.wait = Number(this.times.wait) / 1_000_000;
   }
 
-  onResponseEnd(res: IncomingMessage, body: Buffer, timing: bigint): void {
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    const dns = timings.dns < 0n ? 0n : timings.dns;
-    const connect = timings.connect < 0n ? 0n : timings.connect;
-    const ssl = timings.ssl < 0n ? 0n : timings.ssl;
-    timings.receive =
-      timing -
-      (timings.start +
-        blocked +
-        dns +
-        connect +
-        ssl +
-        timings.send +
-        timings.wait);
-    this.entry.timings.receive = Number(timings.receive) / 1_000_000;
+  onResponseEnd(res: IncomingMessage, body: Buffer, time: bigint): void {
+    this.times.receive = time - this.accumulatedTime;
+    this.accumulatedTime = time;
 
-    this.entry.time =
-      Number(blocked) / 1_000_000 +
-      Number(dns) / 1_000_000 +
-      Number(connect) / 1_000_000 +
-      Number(ssl) / 1_000_000 +
-      this.entry.timings.send +
-      this.entry.timings.wait +
-      this.entry.timings.receive;
+    this.entry.timings.receive = Number(this.times.receive) / 1_000_000;
+    this.entry.time = Number(this.accumulatedTime - this.startTime) / 1_000_000;
 
     this.entry.response.bodySize = body.length;
     const ce = res.headers["content-encoding"];
@@ -246,18 +226,14 @@ class HARInterceptor implements IInterceptor {
     }
   }
 
-  onRequestFirstByte(_timing: bigint): void {
+  onRequestFirstByte(_time: bigint): void {
     // no-op
   }
 
-  onRequestFinish(req: ClientRequest, body: Buffer, timing: bigint): void {
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    const dns = timings.dns < 0n ? 0n : timings.dns;
-    const connect = timings.connect < 0n ? 0n : timings.connect;
-    const ssl = timings.ssl < 0n ? 0n : timings.ssl;
-    timings.send = timing - (timings.start + blocked + dns + connect + ssl);
-    this.entry.timings.send = Number(timings.send) / 1_000_000;
+  onRequestFinish(req: ClientRequest, body: Buffer, time: bigint): void {
+    this.times.send = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.send = Number(this.times.send) / 1_000_000;
 
     this.entry.request.bodySize = body.length;
 
@@ -281,44 +257,40 @@ class HARInterceptor implements IInterceptor {
     }
   }
 
-  onSocketCreate(socket: Socket, timing: bigint): void {
-    const timings = this.timings;
-    timings.blocked = timing - timings.start;
-    this.entry.timings.blocked = Number(timings.blocked) / 1_000_000;
+  onSocketCreate(socket: Socket, time: bigint): void {
+    this.times.blocked = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.blocked = Number(this.times.blocked) / 1_000_000;
+
     const address = socket.address() as AddressInfo;
     if (address.port) {
       this.entry.connection = String(address.port);
     }
   }
 
-  onDNSLookup(address: string, timing: bigint): void {
+  onDNSLookup(address: string, time: bigint): void {
     this.entry.serverIPAddress = address;
 
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    timings.dns = timing - (timings.start + blocked);
-    this.entry.timings.dns = Number(timings.dns) / 1_000_000;
+    this.times.dns = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.dns = Number(this.times.dns) / 1_000_000;
   }
 
-  onSocketConnect(socket: Socket, timing: bigint): void {
+  onSocketConnect(socket: Socket, time: bigint): void {
     const address = socket.address() as AddressInfo;
     if (address.port) {
       this.entry.connection = String(address.port);
     }
 
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    const dns = timings.dns < 0n ? 0n : timings.dns;
-    timings.connect = timing - (timings.start + blocked + dns);
-    this.entry.timings.connect = Number(timings.connect) / 1_000_000;
+    this.times.connect = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.connect = Number(this.times.connect) / 1_000_000;
   }
 
-  onSecureConnect(_socket: Socket, timing: bigint): void {
-    const timings = this.timings;
-    const blocked = timings.blocked < 0n ? 0n : timings.blocked;
-    const dns = timings.dns < 0n ? 0n : timings.dns;
-    timings.ssl = timing - (timings.start + blocked + dns + timings.connect);
-    this.entry.timings.ssl = Number(timings.ssl) / 1_000_000;
+  onSecureConnect(_socket: Socket, time: bigint): void {
+    this.times.ssl = time - this.accumulatedTime;
+    this.accumulatedTime = time;
+    this.entry.timings.ssl = Number(this.times.ssl) / 1_000_000;
   }
 
   onComplete(): void {

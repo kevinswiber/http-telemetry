@@ -4,22 +4,22 @@ import { Socket } from "node:net";
 
 export interface IExporter {
   onInstrumented(): void;
-  createInterceptor(method: string, url: URL, timing: bigint): IInterceptor;
+  createInterceptor(method: string, url: URL, time: bigint): IInterceptor;
   export(): void;
 }
 
 export interface IInterceptor {
   onComplete(): void;
-  onRequestCall(req: ClientRequest, timing: bigint): void;
-  onRequestFinish(req: ClientRequest, body: Buffer, timing: bigint): void;
-  onRequestFirstByte(timing: bigint): void;
-  onResponseEnd(res: IncomingMessage, body: Buffer, timing: bigint): void;
-  onResponseFirstByte(timing: bigint): void;
-  onResponseReceived(res: IncomingMessage, timing: bigint): void;
-  onSecureConnect(socket: Socket, timing: bigint): void;
-  onSocketConnect(socket: Socket, timing: bigint): void;
-  onSocketCreate(socket: Socket, timing: bigint): void;
-  onDNSLookup(address: string, timing: bigint): void;
+  onRequestCall(req: ClientRequest, time: bigint): void;
+  onRequestFinish(req: ClientRequest, body: Buffer, time: bigint): void;
+  onRequestFirstByte(time: bigint): void;
+  onResponseEnd(res: IncomingMessage, body: Buffer, time: bigint): void;
+  onResponseFirstByte(time: bigint): void;
+  onResponseReceived(res: IncomingMessage, time: bigint): void;
+  onSecureConnect(socket: Socket, time: bigint): void;
+  onSocketConnect(socket: Socket, time: bigint): void;
+  onSocketCreate(socket: Socket, time: bigint): void;
+  onDNSLookup(address: string, time: bigint): void;
 }
 
 export type TraceOptions = RequestOptions & {
@@ -45,7 +45,7 @@ type RequestFunc2 = (
   callback?: (res: IncomingMessage) => void
 ) => ClientRequest;
 
-export interface Timings {
+export interface Metrics {
   start: bigint;
   blocked: bigint;
   dns: bigint;
