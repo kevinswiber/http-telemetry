@@ -9,6 +9,10 @@ const harExporter = new HARExporter({ name, version, exportPath });
 patch(harExporter);
 
 process.on(process.report.signal, dump);
+process.on("SIGINT", () => {
+  dump();
+  process.exit();
+});
 process.on("exit", (code) => {
   if (code !== 0) {
     return;
