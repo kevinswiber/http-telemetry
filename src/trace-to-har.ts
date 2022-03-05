@@ -22,5 +22,5 @@ process.on("exit", (code) => {
 });
 
 function dump() {
-  harExporter.export();
+  harExporter.complete();
 }

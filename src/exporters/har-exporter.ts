@@ -31,14 +31,14 @@ export class HARExporter implements IExporter {
     this.archive.log.entries = [];
   }
 
-  createInterceptor(method: string, url: URL, time: bigint): IInterceptor {
+  next(method: string, url: URL, time: bigint): IInterceptor {
     const interceptor = new HARInterceptor(method, url, time, (entry) => {
       this.archive.log.entries.push(entry);
     });
     return interceptor;
   }
 
-  export(): void {
+  complete(): void {
     const contents = JSON.stringify(this.archive, null, 2);
     fs.writeFileSync(this.exportPath, contents);
   }
@@ -62,18 +62,42 @@ class HARInterceptor implements IInterceptor {
   private url: URL;
   private entry: Entry;
   private meter: Meter;
-  private completionHandler: (entry: Entry) => void;
+  private successHandler: (entry: Entry) => void;
 
   constructor(
     method: string,
     url: URL,
     time: bigint,
-    completionHandler: (entry: Entry) => void
+    successHandler: (entry: Entry) => void
   ) {
     this.url = url;
     this.entry = this.createEntry(method, url, new Date());
     this.meter = new Meter(time);
-    this.completionHandler = completionHandler;
+    this.successHandler = successHandler;
+  }
+
+  onRequestAbort(_req: ClientRequest, _time: bigint): void {
+    // no-op
+  }
+
+  onRequestClose(_req: ClientRequest, _time: bigint): void {
+    // no-op
+  }
+
+  onRequestError(_req: ClientRequest, _error: Error, _time: bigint): void {
+    // no-op
+  }
+
+  onResponseAborted(_res: IncomingMessage, _time: bigint): void {
+    // no-op
+  }
+
+  onResponseError(_res: IncomingMessage, _error: Error, _time: bigint): void {
+    // no-op
+  }
+
+  onResponseClose(_res: IncomingMessage, _time: bigint): void {
+    // no-op
   }
 
   onRequestCall(req: ClientRequest, _time: bigint): void {
@@ -148,7 +172,7 @@ class HARInterceptor implements IInterceptor {
         });
   }
 
-  onResponseFirstByte(time: bigint): void {
+  onResponseFirstByte(res: IncomingMessage, time: bigint): void {
     this.meter.recordWait(time);
     this.entry.timings.wait = Number(this.meter.wait) / 1_000_000;
   }
@@ -209,9 +233,11 @@ class HARInterceptor implements IInterceptor {
         });
       }
     }
+
+    this.successHandler(this.entry);
   }
 
-  onRequestFirstByte(_time: bigint): void {
+  onRequestFirstByte(_req: ClientRequest, _time: bigint): void {
     // no-op
   }
 
@@ -241,7 +267,7 @@ class HARInterceptor implements IInterceptor {
     }
   }
 
-  onSocketCreate(socket: Socket, time: bigint): void {
+  onSocketAssigned(socket: Socket, time: bigint): void {
     this.meter.recordBlocked(time);
     this.entry.timings.blocked = Number(this.meter.blocked) / 1_000_000;
 
@@ -251,7 +277,7 @@ class HARInterceptor implements IInterceptor {
     }
   }
 
-  onDNSLookup(address: string, time: bigint): void {
+  onDNSLookup(_socket: Socket, address: string, time: bigint): void {
     this.entry.serverIPAddress = address;
 
     this.meter.recordDNS(time);
@@ -274,9 +300,6 @@ class HARInterceptor implements IInterceptor {
     this.entry.timings.ssl = Number(this.meter.ssl) / 1_000_000;
   }
 
-  onComplete(): void {
-    this.completionHandler(this.entry);
-  }
   private createEntry(method: string, url: URL, start: Date): Entry {
     const entry = {
       startedDateTime: null,

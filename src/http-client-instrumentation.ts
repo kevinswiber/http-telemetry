@@ -22,11 +22,7 @@ export function instrument(
             (options.path || "/")
         );
 
-  const interceptor = exporter.createInterceptor(
-    method,
-    url,
-    process.hrtime.bigint()
-  );
+  const interceptor = exporter.next(method, url, process.hrtime.bigint());
 
   const req: ClientRequest = request.call(self, options, callback);
   interceptor.onRequestCall(req, process.hrtime.bigint());
@@ -35,7 +31,7 @@ export function instrument(
     interceptor.onResponseReceived(res, process.hrtime.bigint());
 
     res.once("data", () => {
-      interceptor.onResponseFirstByte(process.hrtime.bigint());
+      interceptor.onResponseFirstByte(res, process.hrtime.bigint());
     });
 
     const chunks: Buffer[] = [];
@@ -46,12 +42,23 @@ export function instrument(
     res.on("end", () => {
       const responseBody = Buffer.concat(chunks);
       interceptor.onResponseEnd(res, responseBody, process.hrtime.bigint());
-      interceptor.onComplete();
+    });
+
+    res.on("close", () => {
+      interceptor.onResponseClose(res, process.hrtime.bigint());
+    });
+
+    res.on("error", (err) => {
+      interceptor.onResponseError(res, err, process.hrtime.bigint());
+    });
+
+    res.on("aborted", () => {
+      interceptor.onResponseAborted(res, process.hrtime.bigint());
     });
   });
 
   req.once("data", () => {
-    interceptor.onRequestFirstByte(process.hrtime.bigint());
+    interceptor.onRequestFirstByte(req, process.hrtime.bigint());
   });
 
   const chunks: Buffer[] = [];
@@ -64,17 +71,31 @@ export function instrument(
     interceptor.onRequestFinish(req, requestBody, process.hrtime.bigint());
   });
 
+  req.on("close", () => {
+    interceptor.onRequestClose(req, process.hrtime.bigint());
+  });
+
+  req.on("error", (err) => {
+    interceptor.onRequestError(req, err, process.hrtime.bigint());
+  });
+
+  req.on("abort", () => {
+    interceptor.onRequestAbort(req, process.hrtime.bigint());
+  });
+
   req.on("socket", (socket) => {
-    interceptor.onSocketCreate(socket, process.hrtime.bigint());
-    socket.on("lookup", (_err, address) => {
-      interceptor.onDNSLookup(address, process.hrtime.bigint());
+    interceptor.onSocketAssigned(socket, process.hrtime.bigint());
+
+    // use once instead of on here, because sockets get reused.
+    socket.once("lookup", (_err, address) => {
+      interceptor.onDNSLookup(socket, address, process.hrtime.bigint());
     });
 
-    socket.on("connect", () => {
+    socket.once("connect", () => {
       interceptor.onSocketConnect(socket, process.hrtime.bigint());
     });
 
-    socket.on("secureConnect", () => {
+    socket.once("secureConnect", () => {
       interceptor.onSecureConnect(socket, process.hrtime.bigint());
     });
   });
