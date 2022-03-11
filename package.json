@@ -1,7 +1,7 @@
 {
   "name": "http-telemetry",
   "version": "1.0.0",
-  "description": "Run a Postman collection and store the execution as an HTTP Archive (HAR) file.",
+  "description": "Intercept HTTP telemetry signals from any Node.js code that's using the built-in http/https modules.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -13,20 +13,19 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kevinswiber/newman-trace.git"
+    "url": "git+https://github.com/kevinswiber/http-telemetry.git"
   },
   "keywords": [
-    "postman",
-    "newman",
-    "har",
+    "telemetry",
+    "http",
     "trace"
   ],
   "author": "Kevin Swiber <kswiber@gmail.com>",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/kevinswiber/newman-trace/issues"
+    "url": "https://github.com/kevinswiber/http-telemetry/issues"
   },
-  "homepage": "https://github.com/kevinswiber/newman-trace#readme",
+  "homepage": "https://github.com/kevinswiber/http-telemetry#readme",
   "files": [
     "src/*",
     "dist/*",
@@ -51,7 +50,6 @@
   },
   "dependencies": {
     "istextorbinary": "^6.0.0",
-    "newman": "^5.3.1",
     "require-in-the-middle": "^5.1.0",
     "shimmer": "^1.2.1"
   }
