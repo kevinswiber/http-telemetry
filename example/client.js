@@ -6,7 +6,14 @@ const agent = new Agent({
   maxSockets: Infinity,
 });
 
+const MAX = 3;
+let count = 0;
 function makeRequest() {
+  if (interval && count === MAX) {
+    clearInterval(interval);
+    return;
+  }
+
   request(
     {
       host: "f0qfne0emk.execute-api.us-west-2.amazonaws.com",
@@ -19,8 +26,9 @@ function makeRequest() {
     },
     (res) => {
       console.log("status code:", res.statusCode);
+      count++;
     }
   ).end();
 }
 
-setInterval(() => makeRequest(), 3000);
+const interval = setInterval(() => makeRequest(), 1000);

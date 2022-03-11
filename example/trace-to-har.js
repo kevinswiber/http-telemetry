@@ -1,5 +1,6 @@
-import { HARExporter } from "./exporters/har-exporter";
-import { patch } from "./http-client-patch";
+/* eslint-disable @typescript-eslint/no-var-requires */
+const { HARExporter } = require("../");
+const { patch } = require("../");
 
 const name = process.env.HAR_CREATOR_NAME || "har-tracer";
 const version = process.env.HAR_CREATOR_VERSION || "1.0.0";

@@ -190,6 +190,7 @@ class HARInterceptor implements IInterceptor {
       const enc = getEncoding(body);
 
       if (!enc) {
+        this.successHandler(this.entry);
         return;
       } else if (enc === "utf8") {
         this.entry.response.content.text = body.toString("utf8");
