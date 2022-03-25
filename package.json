@@ -1,6 +1,6 @@
 {
   "name": "http-telemetry",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Intercept HTTP telemetry signals from any Node.js code that's using the built-in http/https modules.",
   "main": "dist/index.js",
   "scripts": {
