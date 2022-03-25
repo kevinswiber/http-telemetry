@@ -23,6 +23,10 @@ export class Meter {
     return this.startTime;
   }
 
+  get accumulated() {
+    return this.accumulatedTime;
+  }
+
   recordBlocked(time: bigint) {
     this.timings.blocked = time - this.accumulatedTime;
     this.accumulatedTime = time;
@@ -88,5 +92,9 @@ export class Meter {
 
   get total() {
     return this.accumulatedTime - this.startTime;
+  }
+
+  snapshot() {
+    return Object.assign({}, this.timings);
   }
 }
