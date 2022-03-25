@@ -10,7 +10,7 @@ npm install http-telemetry
 
 ## Usage
 
-Create a file to auto-instrument the built-in http/https modules. Assign an exporter to receive signals from the `ClientRequest`. Exporters must adhere to the `IExporter` interface. See `src/exporters/har-exporter.ts` as an example.
+Create a file to auto-instrument the built-in http/https modules. Assign an exporter to receive signals from the `ClientRequest`. Exporters must adhere to the `IClientExporter` interface. See `src/exporters/har-exporter.ts` as an example.
 
 ```js
 const { HARExporter, patch } = require("http-telemetry");

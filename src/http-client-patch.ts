@@ -2,9 +2,14 @@ import { IncomingMessage } from "node:http";
 import hook from "require-in-the-middle";
 import shimmer from "shimmer";
 import { instrument } from "./http-client-instrumentation";
-import { TraceOptions, ProtocolModule, RequestFunc, IExporter } from "./types";
+import {
+  TraceOptions,
+  ProtocolModule,
+  RequestFunc,
+  IClientExporter,
+} from "./types";
 
-export function patch(exporter: IExporter) {
+export function patch(exporter: IClientExporter) {
   hook(["http", "https"], (moduleExports) => {
     const modExp = moduleExports as unknown as ProtocolModule;
     shimmer.wrap(modExp, "request", (request) =>
@@ -20,7 +25,7 @@ export function patch(exporter: IExporter) {
 
 function createTrace(
   moduleExports: ProtocolModule,
-  exporter: IExporter,
+  exporter: IClientExporter,
   request: RequestFunc
 ) {
   const defaultProtocol = moduleExports.globalAgent?.protocol || "http:";

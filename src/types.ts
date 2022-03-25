@@ -2,13 +2,13 @@ import { ClientRequest, IncomingMessage } from "node:http";
 import { RequestOptions } from "node:https";
 import { Socket } from "node:net";
 
-export interface IExporter {
+export interface IClientExporter {
   onInstrumented(): void;
-  next(method: string, url: URL, time: bigint): IInterceptor;
+  next(method: string, url: URL, time: bigint): IClientInterceptor;
   complete(): void;
 }
 
-export interface IInterceptor {
+export interface IClientInterceptor {
   onDNSLookup(socket: Socket, address: string, time: bigint): void;
   onRequestAbort(req: ClientRequest, time: bigint): void;
   onRequestCall(req: ClientRequest, time: bigint): void;
