@@ -9,7 +9,7 @@ import { AddressInfo, Socket } from "node:net";
 import { createBrotliDecompress, createGunzip, createInflate } from "node:zlib";
 import { Entry, Har } from "har-format";
 import { getEncoding } from "istextorbinary";
-import { IExporter, IInterceptor } from "../types";
+import { IClientExporter, IClientInterceptor } from "../types";
 import { Meter } from "../meter";
 
 export interface HARExporterOptions {
@@ -18,7 +18,7 @@ export interface HARExporterOptions {
   exportPath: string;
 }
 
-export class HARExporter implements IExporter {
+export class HARExporter implements IClientExporter {
   private readonly exportPath: string;
   private archive: Har;
 
@@ -31,7 +31,7 @@ export class HARExporter implements IExporter {
     this.archive.log.entries = [];
   }
 
-  next(method: string, url: URL, time: bigint): IInterceptor {
+  next(method: string, url: URL, time: bigint): IClientInterceptor {
     const interceptor = new HARInterceptor(method, url, time, (entry) => {
       this.archive.log.entries.push(entry);
     });
@@ -58,7 +58,7 @@ export class HARExporter implements IExporter {
   }
 }
 
-class HARInterceptor implements IInterceptor {
+class HARInterceptor implements IClientInterceptor {
   private url: URL;
   private entry: Entry;
   private meter: Meter;
