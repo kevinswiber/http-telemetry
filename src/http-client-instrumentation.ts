@@ -86,16 +86,19 @@ export function instrument(
   req.on("socket", (socket) => {
     interceptor.onSocketAssigned(socket, process.hrtime.bigint());
 
-    // use once instead of on here, because sockets get reused.
-    socket.once("lookup", (_err, address) => {
+    if (!socket.connecting) {
+      return;
+    }
+
+    socket.on("lookup", (_err, address) => {
       interceptor.onDNSLookup(socket, address, process.hrtime.bigint());
     });
 
-    socket.once("connect", () => {
+    socket.on("connect", () => {
       interceptor.onSocketConnect(socket, process.hrtime.bigint());
     });
 
-    socket.once("secureConnect", () => {
+    socket.on("secureConnect", () => {
       interceptor.onSecureConnect(socket, process.hrtime.bigint());
     });
   });
