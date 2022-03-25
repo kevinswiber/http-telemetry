@@ -1,9 +1,9 @@
 import { ClientRequest, IncomingMessage } from "node:http";
-import { IExporter, RequestFunc, TraceOptions } from "./types";
+import { IClientExporter, RequestFunc, TraceOptions } from "./types";
 
 export function instrument(
   self: unknown,
-  exporter: IExporter,
+  exporter: IClientExporter,
   request: RequestFunc,
   options: TraceOptions,
   defaultProtocol: string,
