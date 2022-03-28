@@ -1,9 +1,9 @@
-import { Metrics } from "./types";
+import { Timings } from "./types";
 
 export class Meter {
   private startTime: bigint;
   private accumulatedTime: bigint;
-  private timings: Metrics;
+  private timings: Timings;
 
   constructor(time: bigint) {
     this.startTime = this.accumulatedTime = time;
