@@ -50,7 +50,7 @@ type RequestFunc2 = (
   callback?: (res: IncomingMessage) => void
 ) => ClientRequest;
 
-export interface Metrics {
+export interface Measurements {
   start: bigint;
   blocked: bigint;
   dns: bigint;
